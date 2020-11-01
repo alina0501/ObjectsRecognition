@@ -19,61 +19,66 @@ def train_des(img_path, outp_path):
 
 sift = cv.xfeatures2d.SIFT_create()
 
-# keypoints_train, des_train = train_des('src/object.jpg', 'src/outp/keypts_object.jpg')
-# keypoints_train, des_train = train_des('src/origin.jpg', 'src/outp/keypts_object_seva.jpg')
-keypoints_train, des_train = train_des('src/goose_cup_train/train_goose2.jpg', 'src/outp/keypts_object_olya.jpg')
+keypoints_train, des_train = {}, {}
+keypoints_train['alina'], des_train['alina'] = train_des('src/object.jpg', 'src/outp/keypts_object.jpg')
+keypoints_train['seva'], des_train['seva'] = train_des('src/origin.jpg', 'src/outp/keypts_object_seva.jpg')
+keypoints_train['olya'], des_train['olya'] = train_des('src/goose_cup_train/train_goose2.jpg',
+                                                       'src/outp/keypts_object_olya.jpg')
 
-FLANN_INDEX_KDTREE = 0
-index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
-search_params = dict(checks=50)
 
-flann = cv.FlannBasedMatcher(index_params, search_params)
-
-good = dict()
-MIN_MATCH_COUNT = 10
-metrics = {'1': [], '2': [], '3': []}
-
+collection = {}
 os.getcwd()
-# collection = f'{os.getcwd()}/src/alina'
-# collection = f'{os.getcwd()}/src/photo'
-collection = f'{os.getcwd()}/src/goose_cup'
+collection['alina'] = f'{os.getcwd()}/src/alina'
+collection['seva'] = f'{os.getcwd()}/src/photo'
+collection['olya'] = f'{os.getcwd()}/src/goose_cup'
 
-for i, filename in enumerate(os.listdir(collection)):
-    img_test = cv.imread(f"{collection}/{filename}", cv.IMREAD_GRAYSCALE)
+for key in collection.keys():
 
-    start_time = time.time()
+    FLANN_INDEX_KDTREE = 0
+    index_params = dict(algorithm=FLANN_INDEX_KDTREE, trees=5)
+    search_params = dict(checks=50)
 
-    keypoints_test, des_test = sift.detectAndCompute(img_test, None)
+    flann = cv.FlannBasedMatcher(index_params, search_params)
 
-    metrics['3'].append((time.time() - start_time, img_test.shape[0] + img_test.shape[1]))
+    good = dict()
+    MIN_MATCH_COUNT = 10
+    metrics = {'1': [], '2': [], '3': []}
 
-    matches = flann.knnMatch(des_test, des_train, k=2)
+    for i, filename in enumerate(os.listdir(collection[key])):
+        img_test = cv.imread(f"{collection[key]}/{filename}", cv.IMREAD_GRAYSCALE)
 
-    good[str(i)] = []
-    for m, n in matches:
-        if m.distance < 0.75 * n.distance:
-            good[f'{i}'].append(m)
+        start_time = time.time()
 
-    metrics['1'].append(len(good[str(i)]) / len(keypoints_test))
-    metrics['2'].append(np.mean([m.distance for m, n in matches]))
+        keypoints_test, des_test = sift.detectAndCompute(img_test, None)
 
-    # if len(good[str(i)]) >= MIN_MATCH_COUNT:
-    #
-    #     src_pts = np.float32([keypoints_test[m.queryIdx].pt for m in good[str(i)]]).reshape(-1, 1, 2)
-    #     dst_pts = np.float32([keypoints_train[m.trainIdx].pt for m in good[str(i)]]).reshape(-1, 1, 2)
-    #     M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
-    #     matchesMask = mask.ravel().tolist()
-    #     metric1[str(i)] = sum(matchesMask) / len(keypoints_test)
-    #
-    # else:
-    #     print(f"{i}.jpg Not enough matches are found - {len(good[str(i)])}/{MIN_MATCH_COUNT}")
-    #     matchesMask = None
-    #     metric1[str(i)] = len(good[str(i)])/len(keypoints_test)
+        metrics['3'].append((time.time() - start_time, img_test.shape[0] + img_test.shape[1]))
 
-metrics = pd.DataFrame(data=metrics, index=os.listdir(collection))
+        matches = flann.knnMatch(des_test, des_train[key], k=2)
 
-# metrics.to_csv('outp/alina.csv')
-# metrics.to_csv('outp/seva.csv')
-metrics.to_csv('outp/olya.csv')
+        good[str(i)] = []
+        for m, n in matches:
+            if m.distance < 0.75 * n.distance:
+                good[f'{i}'].append(m)
+
+        metrics['1'].append(len(good[str(i)]) / len(keypoints_test))
+        metrics['2'].append(np.mean([m.distance for m, n in matches]))
+
+        # if len(good[str(i)]) >= MIN_MATCH_COUNT:
+        #
+        #     src_pts = np.float32([keypoints_test[m.queryIdx].pt for m in good[str(i)]]).reshape(-1, 1, 2)
+        #     dst_pts = np.float32([keypoints_train[m.trainIdx].pt for m in good[str(i)]]).reshape(-1, 1, 2)
+        #     M, mask = cv.findHomography(src_pts, dst_pts, cv.RANSAC, 5.0)
+        #     matchesMask = mask.ravel().tolist()
+        #     metric1[str(i)] = sum(matchesMask) / len(keypoints_test)
+        #
+        # else:
+        #     print(f"{i}.jpg Not enough matches are found - {len(good[str(i)])}/{MIN_MATCH_COUNT}")
+        #     matchesMask = None
+        #     metric1[str(i)] = len(good[str(i)])/len(keypoints_test)
+
+    metrics = pd.DataFrame(data=metrics, index=os.listdir(collection[key]))
+
+    metrics.to_csv(f'outp/{key}.csv')
+
 
 # print(good)
